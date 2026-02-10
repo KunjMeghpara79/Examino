@@ -3,7 +3,7 @@ import { useEffect, useRef, useCallback } from 'react';
 
 const InteractiveDots = ({
   children,
-  backgroundColor = '#000000', // black background
+  backgroundColor = '#000000',
   dotColor = '#d9ff00',
   gridSpacing = 30,
   animationSpeed = 0.005,
@@ -17,14 +17,14 @@ const InteractiveDots = ({
   const initializeDots = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
     const dots = [];
+
     for (let x = 0; x < w; x += gridSpacing) {
       for (let y = 0; y < h; y += gridSpacing) {
         dots.push({
-          x,
-          y,
           originalX: x,
           originalY: y,
           phase: Math.random() * Math.PI * 2,
@@ -37,13 +37,16 @@ const InteractiveDots = ({
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
     const dpr = window.devicePixelRatio || 1;
     canvas.width = window.innerWidth * dpr;
     canvas.height = window.innerHeight * dpr;
     canvas.style.width = `${window.innerWidth}px`;
     canvas.style.height = `${window.innerHeight}px`;
+
     const ctx = canvas.getContext('2d');
     if (ctx) ctx.scale(dpr, dpr);
+
     initializeDots();
   }, [initializeDots]);
 
@@ -55,31 +58,45 @@ const InteractiveDots = ({
   const animate = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     timeRef.current += animationSpeed;
 
-    // Fill black background
+    // Fill background
     ctx.fillStyle = backgroundColor;
     ctx.fillRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+
+    const maxDistance = 220;
+    const minOpacity = 0.05;
+    const maxOpacity = 0.9;
+
+    const r = parseInt(dotColor.slice(1, 3), 16);
+    const g = parseInt(dotColor.slice(3, 5), 16);
+    const b = parseInt(dotColor.slice(5, 7), 16);
 
     dotsRef.current.forEach((dot) => {
       const dx = dot.originalX - mouseRef.current.x;
       const dy = dot.originalY - mouseRef.current.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      const maxDistance = 150;
-      const influence = Math.max(0, 1 - distance / maxDistance);
 
-      const baseDotSize = 2;
-      const dotSize = baseDotSize + influence * 2 + Math.sin(timeRef.current + dot.phase) * 0.2;
-      const opacity = 0.2 + influence * 0.3;
+      // Smooth influence (0 to 1)
+      let influence = 1 - Math.min(distance / maxDistance, 1);
+
+      // Smooth falloff curve (so fading looks natural)
+      influence = influence * influence;
+
+      const opacity = minOpacity + influence * (maxOpacity - minOpacity);
+
+      const baseDotSize = 1.8;
+      const dotSize =
+        baseDotSize +
+        influence * 2.5 +
+        Math.sin(timeRef.current + dot.phase) * 0.2;
 
       ctx.beginPath();
       ctx.arc(dot.originalX, dot.originalY, dotSize, 0, Math.PI * 2);
-      const r = parseInt(dotColor.slice(1, 3), 16);
-      const g = parseInt(dotColor.slice(3, 5), 16);
-      const b = parseInt(dotColor.slice(5, 7), 16);
       ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`;
       ctx.fill();
     });
