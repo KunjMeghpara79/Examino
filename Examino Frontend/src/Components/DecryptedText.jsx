@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 
 export default function DecryptedText({
   text = "Conquer the next question!", // default motivational text
-  speed = 50,
+  speed = 25,
   maxIterations = 10,
   sequential = false,
   revealDirection = 'start',

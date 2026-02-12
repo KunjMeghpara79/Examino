@@ -3,9 +3,11 @@ import DecryptedText from "./DecryptedText";
 import GradientText from "./GradientText";
 import InteractiveDots from "./InteractiveDots";
 import SpotlightCard from "./SpotlightCard";
+import SignUpCard from "./SignUpCard";
+import LoginCard from "./LoginCard";
 
 export default function LandingPage() {
-  const [getstarted, setGetStarted] = useState(false);
+  const [view, setView] = useState('landing'); // 'landing', 'login', 'signup'
 
   return (
     <div className="bg-black relative w-full h-screen">
@@ -14,21 +16,26 @@ export default function LandingPage() {
         {/* Main Content Area */}
         <div className=" bg-black bg-opacity-20 flex-grow">
 
-          {/* Header */}
-          <header className="flex justify-between items-center px-8 py-4 bg-black bg-opacity-0 border-b border-zinc-800">
-            <h1 className="text-2xl font-semibold">
-              <GradientText colors={["#5227FF", "#FF9FFC", "#B19EEF"]} animationSpeed={8} showBorder={false}>
-                Examino
-              </GradientText>
-            </h1>
+          {/* Header - Only show on landing page */}
+          {view === 'landing' && (
+            <header className="flex justify-between items-center px-8 py-4 bg-black bg-opacity-0 border-b border-zinc-800">
+              <h1 className="text-2xl font-semibold">
+                <GradientText colors={["#5227FF", "#FF9FFC", "#B19EEF"]} animationSpeed={8} showBorder={false}>
+                  Examino
+                </GradientText>
+              </h1>
 
-            <button className="px-4 py-2 rounded-lg border-2 border-purple-600 text-purple-600 bg-transparent hover:bg-purple-600 hover:text-white transition-colors duration-300 cursor-pointer">
-              Login
-            </button>
-          </header>
+              <button
+                onClick={() => setView('login')}
+                className="px-4 py-2 rounded-lg border-2 border-purple-600 text-purple-600 bg-transparent hover:bg-purple-600 hover:text-white transition-colors duration-300 cursor-pointer"
+              >
+                Login
+              </button>
+            </header>
+          )}
 
           {/* Conditional Rendering */}
-          {!getstarted ? (
+          {view === 'landing' ? (
             <div>
 
               {/* Hero */}
@@ -50,7 +57,7 @@ export default function LandingPage() {
                 </p>
 
                 <button
-                  onClick={() => setGetStarted(true)}
+                  onClick={() => setView('signup')}
                   className="px-6 py-3 rounded-lg border-2 border-purple-600 text-purple-600 
   bg-transparent hover:bg-purple-600 hover:text-white 
   transition-all duration-300 cursor-pointer text-lg
@@ -87,18 +94,20 @@ export default function LandingPage() {
               </section>
 
             </div>
+          ) : view === 'signup' ? (
+            <SignUpCard onSwitchToLogin={() => setView('login')} />
           ) : (
-            <div className="flex justify-center items-center py-40 text-2xl">
-              Quiz Selection Page Coming Soon...
-            </div>
+            <LoginCard onSwitchToSignup={() => setView('signup')} />
           )}
 
         </div>
 
-        {/* Footer */}
-        <footer className="text-center py-6 text-gray-500 bg-black bg-opacity-40 border-t border-zinc-800 text-sm">
-          © {new Date().getFullYear()} Examino · All Rights Reserved
-        </footer>
+        {/* Footer - Only show on landing page */}
+        {view === 'landing' && (
+          <footer className="text-center py-6 text-gray-500 bg-black bg-opacity-40 border-t border-zinc-800 text-sm">
+            © {new Date().getFullYear()} Examino · All Rights Reserved
+          </footer>
+        )}
 
       </div>
     </div>
