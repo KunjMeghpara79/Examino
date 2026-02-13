@@ -27,10 +27,14 @@ export default function LandingPage() {
 
               <button
                 onClick={() => setView('login')}
-                className="px-4 py-2 rounded-lg border-2 border-purple-600 text-purple-600 bg-transparent hover:bg-purple-600 hover:text-white transition-colors duration-300 cursor-pointer"
+                className="px-4 py-2 rounded-lg border-2 border-purple-600 text-purple-600 bg-transparent
+             hover:bg-purple-600 hover:text-white
+             hover:shadow-[0_0_15px_rgba(147,51,234,0.8)]
+             transition-all duration-300 cursor-pointer"
               >
                 Login
               </button>
+
             </header>
           )}
 
