@@ -5,10 +5,13 @@ import InteractiveDots from "./InteractiveDots";
 import SpotlightCard from "./SpotlightCard";
 import SignUpCard from "./SignUpCard";
 import LoginCard from "./LoginCard";
+import { useEffect } from "react";
 
 export default function LandingPage() {
   const [view, setView] = useState('landing'); // 'landing', 'login', 'signup'
-
+  useEffect(() => {
+    localStorage.clear();
+  });
   return (
     <div className="bg-black relative w-full h-screen">
       <div className="min-h-screen flex flex-col text-white">

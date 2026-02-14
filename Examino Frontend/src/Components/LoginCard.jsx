@@ -2,7 +2,6 @@ import { useState } from 'react';
 import SpotlightCard from './SpotlightCard';
 import GradientText from './GradientText';
 import DecryptedText from './DecryptedText';
-import { toast } from 'react-toastify';
 
 const LoginCard = ({ onSwitchToSignup }) => {
     const [formData, setFormData] = useState({
@@ -45,7 +44,6 @@ const LoginCard = ({ onSwitchToSignup }) => {
                 localStorage.setItem('token', data.token);
                 console.log(data);
                 localStorage.setItem('user', JSON.stringify(data.user)); // Optional: store user info
-toast.success('Login successful!');
                 // TODO: Redirect to dashboard based on role
                 // navigate('/dashboard'); 
             } else {
@@ -261,6 +259,7 @@ toast.success('Login successful!');
                                 flex items-center justify-center gap-3
                                 cursor-pointer
                             "
+                            onClick={() => window.location.href = `${import.meta.env.VITE_API_BASE_URL}/oauth2/authorization/google`}
                         >
                             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -275,7 +274,7 @@ toast.success('Login successful!');
                         <p className="text-center text-sm text-gray-400 mt-5">
                             Don't have an account?{' '}
                             <button
-                                onClick={onSwitchToSignup}
+                                onClick={() => onSwitchToSignup && onSwitchToSignup()}
                                 className="text-purple-600 hover:text-purple-500 font-medium transition-colors duration-300 cursor-pointer"
                             >
                                 Sign up
