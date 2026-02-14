@@ -21,9 +21,7 @@ public class UserService {
     // 1️⃣ Register a new user
     public User registerUser(User user) {
         // Check if email already exists
-        if (userRepository.findByEmail(user.getEmail()) != null) {
-            throw new RuntimeException("Email already registered");
-        }
+
 
         user.setCreatedAt(LocalDateTime.now());
 

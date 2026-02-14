@@ -7,13 +7,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-
 
 /**
  * JwtFilter runs ONCE for EVERY HTTP request.
@@ -22,10 +20,6 @@ import java.io.IOException;
  * - Check Authorization header
  * - Validate JWT token
  * - Set authenticated user in Spring Security Context
- *
- * WITHOUT THIS CLASS:
- * ❌ JWT token would never be checked
- * ❌ All APIs would be unsecured
  */
 @Component
 public class JwtFilter extends OncePerRequestFilter {
@@ -39,9 +33,6 @@ public class JwtFilter extends OncePerRequestFilter {
         this.userDetailsService = userDetailsService;
     }
 
-    /**
-     * This method executes for EVERY request
-     */
     @Override
     protected void doFilterInternal(
             HttpServletRequest request,
@@ -49,71 +40,60 @@ public class JwtFilter extends OncePerRequestFilter {
             FilterChain chain)
             throws ServletException, IOException {
 
-        /**
-         * Read Authorization header
-         * Expected format:
-         * Authorization: Bearer <JWT_TOKEN>
-         */
-        String authHeader = request.getHeader("Authorization");
+        // Skip JWT check for public auth endpoints
+        String path = request.getRequestURI();
+        if (path.startsWith("/auth/")) {
+            chain.doFilter(request, response);
+            return;
+        }
 
-        // Check if header exists and starts correctly
-        if (authHeader != null &&
-                authHeader.startsWith("Bearer ")) {
+        try {
+            // Read Authorization header
+            String authHeader = request.getHeader("Authorization");
 
-            // Extract token by removing "Bearer "
-            String token = authHeader.substring(7);
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
 
-            // Extract username (email) from token
-            String username = jwtUtil.extractUsername(token);
+                // Extract token
+                String token = authHeader.substring(7);
 
-            /**
-             * Load user details from DB
-             * Needed by Spring Security for role checking
-             */
-            UserDetails userDetails =
-                    null;
-            try {
-                userDetails = userDetailsService
-                        .loadUserByUsername(username);
-            } catch (UsernameNotFoundException e) {
-                throw new RuntimeException(e);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
+                // Extract username (email) from token
+                String username = jwtUtil.extractUsername(token);
+
+                // Proceed only if username exists and user not already authenticated
+                if (username != null &&
+                        SecurityContextHolder.getContext().getAuthentication() == null) {
+
+                    UserDetails userDetails =
+                            userDetailsService.loadUserByUsername(username);
+
+                    // Validate token before setting authentication
+                    if (jwtUtil.validateToken(token, userDetails.getUsername())) {
+
+                        UsernamePasswordAuthenticationToken authentication =
+                                new UsernamePasswordAuthenticationToken(
+                                        userDetails,
+                                        null,
+                                        userDetails.getAuthorities()
+                                );
+
+                        authentication.setDetails(
+                                new WebAuthenticationDetailsSource()
+                                        .buildDetails(request)
+                        );
+
+                        SecurityContextHolder
+                                .getContext()
+                                .setAuthentication(authentication);
+                    }
+                }
             }
 
-            /**
-             * Create Authentication object
-             *
-             * UsernamePasswordAuthenticationToken means:
-             * "This user is authenticated"
-             */
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(
-                            userDetails,
-                            null, // no credentials needed
-                            userDetails.getAuthorities()
-                    );
-
-            // Attach request details (IP, session, etc.)
-            authentication.setDetails(
-                    new WebAuthenticationDetailsSource()
-                            .buildDetails(request)
-            );
-
-            /**
-             * VERY IMPORTANT:
-             * Store authentication in SecurityContext
-             *
-             * After this:
-             * - Spring knows user is logged in
-             * - @PreAuthorize works
-             */
-            SecurityContextHolder
-                    .getContext()
-                    .setAuthentication(authentication);
+        } catch (Exception e) {
+            // Never break request flow because of invalid token
         }
 
         // Continue filter chain
         chain.doFilter(request, response);
     }
+
 }

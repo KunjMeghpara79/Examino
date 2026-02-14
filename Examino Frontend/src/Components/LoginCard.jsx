@@ -2,6 +2,7 @@ import { useState } from 'react';
 import SpotlightCard from './SpotlightCard';
 import GradientText from './GradientText';
 import DecryptedText from './DecryptedText';
+import { toast } from 'react-toastify';
 
 const LoginCard = ({ onSwitchToSignup }) => {
     const [formData, setFormData] = useState({
@@ -9,6 +10,8 @@ const LoginCard = ({ onSwitchToSignup }) => {
         password: '',
     });
     const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
     const handleChange = (e) => {
         setFormData({
@@ -17,9 +20,43 @@ const LoginCard = ({ onSwitchToSignup }) => {
         });
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        console.log(formData);
+        setLoading(true);
+        setError('');
+
+        try {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email: formData.email,
+                    password: formData.password,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                // Determine user role and redirect accordingly
+                // Assuming the backend returns a token and user details
+                localStorage.setItem('token', data.token);
+                console.log(data);
+                localStorage.setItem('user', JSON.stringify(data.user)); // Optional: store user info
+toast.success('Login successful!');
+                // TODO: Redirect to dashboard based on role
+                // navigate('/dashboard'); 
+            } else {
+                setError(data.message || 'Login failed. Please check your credentials.');
+            }
+        } catch (err) {
+            console.error('Login error:', err);
+            setError('Network error. Please try again later.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -177,9 +214,17 @@ const LoginCard = ({ onSwitchToSignup }) => {
                                 </div>
                             </div>
 
+                            {/* Error Message */}
+                            {error && (
+                                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/50 text-red-400 text-sm">
+                                    {error}
+                                </div>
+                            )}
+
                             {/* Submit Button */}
                             <button
                                 type="submit"
+                                disabled={loading}
                                 className="
                   w-full px-6 py-3 rounded-lg 
                   border-2 border-purple-600 
@@ -190,9 +235,10 @@ const LoginCard = ({ onSwitchToSignup }) => {
                   hover:shadow-[0_0_15px_rgba(168,85,247,0.8)]
                   cursor-pointer
                   mt-2
+                  disabled:opacity-50 disabled:cursor-not-allowed
                 "
                             >
-                                Sign In
+                                {loading ? 'Signing In...' : 'Sign In'}
                             </button>
                         </form>
 

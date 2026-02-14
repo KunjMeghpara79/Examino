@@ -10,6 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
+
 @Service
 public class AuthService {
 
@@ -27,15 +29,13 @@ public class AuthService {
 
     // ADMIN creates users
     public ResponseEntity<?> createUser(CreateUserRequest request)  {
-        if (userRepository.findByEmail(request.getEmail()) != null) {
-        return new ResponseEntity<>("User already exists.", HttpStatus.FORBIDDEN);
-    }
 
-        User user = new User();
+
+        User user = userRepository.findByEmail(request.getEmail());
         user.setName(request.getName());
-        user.setEmail(request.getEmail());
 
-        // 🔐 PASSWORD ENCRYPTION HAPPENS HERE
+
+
         user.setPassword(
                 passwordEncoder.encode(request.getPassword())
         );
@@ -47,21 +47,38 @@ public class AuthService {
     }
 
     // Login for ADMIN & STUDENT
-    public ResponseEntity<?> login(LoginRequest request) {
+    public ResponseEntity<?> login(LoginRequest request){
 
-        User user = userRepository.findByEmail(request.getEmail());
-        if(user == null) return new ResponseEntity<>("User does not exist",HttpStatus.FORBIDDEN);
+        User user=userRepository.findByEmail(request.getEmail());
 
-        // 🔐 PASSWORD MATCHING
-        if (!passwordEncoder.matches(
-                request.getPassword(),
-                user.getPassword())) {
-            throw new RuntimeException("Invalid credentials");
+        if(user==null){
+            return ResponseEntity
+                    .status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("message","User does not exist"));
         }
 
-        return new ResponseEntity<>(jwtUtil.generateToken(
+        // password check
+        if(!passwordEncoder.matches(request.getPassword(),user.getPassword())){
+            return ResponseEntity
+                    .status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("message","Invalid credentials"));
+        }
+
+        // generate token
+        String token=jwtUtil.generateToken(
                 user.getEmail(),
-                user.getRole().name()),HttpStatus.OK);
+                user.getRole().name()
+        );
+
+        // return JSON instead of raw string
+        return ResponseEntity.ok(
+                Map.of(
+                        "token",token,
+                        "email",user.getEmail(),
+                        "role",user.getRole().name()
+                )
+        );
     }
+
 }
 

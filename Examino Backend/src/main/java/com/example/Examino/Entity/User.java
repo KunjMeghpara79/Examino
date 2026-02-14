@@ -16,5 +16,6 @@ public class User {
     private String password;
     private Role role;
     private String otp=null;
+
     private LocalDateTime createdAt = LocalDateTime.now();
 }
