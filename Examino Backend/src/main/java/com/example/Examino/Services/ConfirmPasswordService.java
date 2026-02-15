@@ -3,10 +3,12 @@ package com.example.Examino.Services;
 import com.example.Examino.Entity.User;
 import com.example.Examino.Repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.Random;
 
@@ -19,6 +21,8 @@ public class ConfirmPasswordService {
     @Autowired
     private EmailService emailService;
 
+    @Autowired
+    private StringRedisTemplate redisTemplate;
 
     public void sendOtp(String to){
         Random random=new Random();
@@ -42,7 +46,11 @@ public class ConfirmPasswordService {
                         "Examino Team",
                 user.getName(),randomSixDigit
         );
-        userRepository.save(user);
+        redisTemplate.opsForValue().set(
+                to,
+                randomSixDigit,
+                Duration.ofSeconds(30)
+        );
 
         emailService.sendMail(to,"Account Registration – Please Confirm Your Email",emailBody);
     }
@@ -62,31 +70,16 @@ public class ConfirmPasswordService {
                     .body(Map.of("message", "OTP is required"));
         }
 
-        // 2. Find user
-        User user = userRepository.findByEmail(email);
 
-        if (user == null) {
-            return ResponseEntity
-                    .status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("message", "User not found"));
+        String storedOtp=redisTemplate.opsForValue().get(email);
+
+
+
+        if(otp.equals(storedOtp)){
+            // 5. Success
+            return ResponseEntity.ok(Map.of("message", "OTP verified"));
         }
-
-        // 3. Check OTP exists
-        if (user.getOtp() == null) {
-            return ResponseEntity
-                    .status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("message", "OTP not generated"));
-        }
-
-        // 4. Compare OTP
-        if (!otp.equals(user.getOtp())) {
-            return ResponseEntity
-                    .status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("message", "Invalid OTP"));
-        }
-
-        // 5. Success
-        return ResponseEntity.ok(Map.of("message", "OTP verified"));
+        return new ResponseEntity<>("OTP not found",HttpStatus.NOT_FOUND);
     }
 
 

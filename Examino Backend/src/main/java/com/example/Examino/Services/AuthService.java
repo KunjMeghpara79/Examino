@@ -31,7 +31,8 @@ public class AuthService {
     public ResponseEntity<?> createUser(CreateUserRequest request)  {
 
 
-        User user = userRepository.findByEmail(request.getEmail());
+        User user = new User();
+        user.setEmail(request.getEmail());
         user.setName(request.getName());
 
 
