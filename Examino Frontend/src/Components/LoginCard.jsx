@@ -145,10 +145,31 @@ const LoginCard = ({ onSwitchToSignup }) => {
         }
     };
 
+    const validatePassword = (password) => {
+        const minLength = 8;
+        const hasUpperCase = /[A-Z]/.test(password);
+        const hasLowerCase = /[a-z]/.test(password);
+        const hasNumber = /\d/.test(password);
+        const hasSpecialChar = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password);
+
+        if (password.length < minLength) return 'Password must be at least 8 characters long.';
+        if (!hasUpperCase) return 'Password must contain at least one uppercase letter.';
+        if (!hasLowerCase) return 'Password must contain at least one lowercase letter.';
+        if (!hasNumber) return 'Password must contain at least one number.';
+        if (!hasSpecialChar) return 'Password must contain at least one special character.';
+        return null;
+    };
+
     const handleResetPassword = async (e) => {
         e.preventDefault();
         if (resetData.newPassword !== resetData.confirmNewPassword) {
             setError({ text: 'Passwords do not match', type: 'error' });
+            return;
+        }
+
+        const passwordError = validatePassword(resetData.newPassword);
+        if (passwordError) {
+            setError({ text: passwordError, type: 'error' });
             return;
         }
 
