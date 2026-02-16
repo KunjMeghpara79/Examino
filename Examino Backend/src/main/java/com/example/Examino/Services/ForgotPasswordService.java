@@ -2,6 +2,7 @@ package com.example.Examino.Services;
 
 import com.example.Examino.Entity.User;
 import com.example.Examino.Repositories.UserRepository;
+import jakarta.mail.MessagingException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
@@ -25,7 +26,7 @@ public class ForgotPasswordService {
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
 
-    public ResponseEntity<?> sendotp(String email){
+    public ResponseEntity<?> sendotp(String email) throws MessagingException {
         User user = userRepository.findByEmail(email);
         if(user == null) return new ResponseEntity<>("User not found", HttpStatus.NOT_FOUND);
 

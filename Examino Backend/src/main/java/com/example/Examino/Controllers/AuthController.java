@@ -5,6 +5,7 @@ import com.example.Examino.DTO.LoginRequest;
 import com.example.Examino.Services.AuthService;
 import com.example.Examino.Services.ConfirmPasswordService;
 import com.example.Examino.Services.ForgotPasswordService;
+import jakarta.mail.MessagingException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,7 +34,7 @@ public class AuthController {
     }
 
     @PostMapping("/sendotp")
-    public ResponseEntity<?> sendotp(@RequestBody  Map<String,String> body){
+    public ResponseEntity<?> sendotp(@RequestBody  Map<String,String> body) throws MessagingException {
         confirmPasswordService.sendOtp(body.get("email"));
         return ResponseEntity.ok(Map.of("message","OTP sent successfully"));
     }

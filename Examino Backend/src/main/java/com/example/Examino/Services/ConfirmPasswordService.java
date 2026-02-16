@@ -2,6 +2,7 @@ package com.example.Examino.Services;
 
 import com.example.Examino.Entity.User;
 import com.example.Examino.Repositories.UserRepository;
+import jakarta.mail.MessagingException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
@@ -24,7 +25,7 @@ public class ConfirmPasswordService {
     @Autowired
     private StringRedisTemplate redisTemplate;
 
-    public void sendOtp(String to){
+    public void sendOtp(String to) throws MessagingException {
         Random random=new Random();
         int number=random.nextInt(1000000); // 0 to 999999
         String randomSixDigit=String.format("%06d",number);
@@ -36,23 +37,33 @@ public class ConfirmPasswordService {
         user.setOtp(randomSixDigit);
 
         String emailBody=String.format(
-                "Hello %s,\n\n"+
-                        "Thank you for signing up.\n"+
-                        "Your verification code is: %s\n\n"+
-                        "Please enter this code to verify your email address.\n"+
-                        "This code will expire in 10 minutes.\n\n"+
-                        "If you did not create this account, please ignore this email.\n\n"+
-                        "Regards,\n"+
-                        "Examino Team",
-                user.getName(),randomSixDigit
-        );
-        redisTemplate.opsForValue().set(
-                to,
-                randomSixDigit,
-                Duration.ofSeconds(30)
+                "<div style='font-family: Arial, sans-serif; background-color:#f4f6f8; padding:20px;'>"
+                        + "  <div style='max-width:500px; margin:0 auto; background:#ffffff; padding:30px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1);'>"
+                        + "    <h2 style='color:#2c3e50; text-align:center;'>Email Verification</h2>"
+                        + "    <p style='font-size:15px; color:#555;'>Hello User,</p>"
+                        + "    <p style='font-size:15px; color:#555;'>Thank you for signing up with <strong>Examino</strong>.</p>"
+                        + "    <p style='font-size:15px; color:#555;'>Your verification code is:</p>"
+                        + "    <div style='text-align:center; margin:25px 0;'>"
+                        + "       <span style='display:inline-block; font-size:32px; font-weight:bold; color:#ffffff; background-color:#007bff; padding:12px 25px; border-radius:8px; letter-spacing:3px;'>%s</span>"
+                        + "    </div>"
+                        + "    <p style='font-size:14px; color:#777;'>Please enter this code to verify your email address.</p>"
+                        + "    <p style='font-size:14px; color:#777;'>This code will expire in <strong>10 minutes</strong>.</p>"
+                        + "    <hr style='margin:25px 0; border:none; border-top:1px solid #eee;'>"
+                        + "    <p style='font-size:13px; color:#999;'>If you did not create this account, please ignore this email.</p>"
+                        + "    <p style='font-size:14px; color:#555;'>Regards,<br><strong>Examino Team</strong></p>"
+                        + "  </div>"
+                        + "</div>",
+                randomSixDigit
         );
 
         emailService.sendMail(to,"Account Registration – Please Confirm Your Email",emailBody);
+        redisTemplate.opsForValue().set(
+                to,
+                randomSixDigit,
+                Duration.ofSeconds(60)
+        );
+
+
     }
 
     public ResponseEntity<?> verifyotp(String email, String otp) {
@@ -79,7 +90,8 @@ public class ConfirmPasswordService {
             // 5. Success
             return ResponseEntity.ok(Map.of("message", "OTP verified"));
         }
-        return new ResponseEntity<>("OTP not found",HttpStatus.NOT_FOUND);
+        return new ResponseEntity<>(Map.of("message", "Invalid OTP"),HttpStatus.NOT_FOUND);
+
     }
 
 

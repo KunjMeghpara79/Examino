@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import SpotlightCard from './SpotlightCard';
 import GradientText from './GradientText';
 import DecryptedText from './DecryptedText';
@@ -13,9 +13,57 @@ const SignUpCard = ({ onSwitchToLogin }) => {
     confirmPassword: '',
   });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState({ text: '', type: '' });
   const [otpSent, setOtpSent] = useState(false); // Can be replaced by step logic if desired, but keeping correct with step variable
   const [step, setStep] = useState(0); // 0: Email, 1: OTP, 2: Details
+  const [timer, setTimer] = useState(60);
+  const [canResend, setCanResend] = useState(false);
+  const [resending, setResending] = useState(false);
+
+  useEffect(() => {
+    let interval;
+    if (step === 1 && timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prev) => prev - 1);
+      }, 1000);
+    } else if (timer === 0) {
+      setCanResend(true);
+    }
+    return () => clearInterval(interval);
+  }, [step, timer]);
+
+  const handleSendOtp = async () => {
+    setError({ text: '', type: '' });
+    if (step === 0) {
+      setLoading(true);
+    } else {
+      setResending(true);
+    }
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/sendotp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setError({ text: `OTP sent to ${formData.email}!`, type: 'success' });
+        setStep(1);
+        localStorage.setItem('email', formData.email);
+        setOtpSent(true);
+        setTimer(60);
+        setCanResend(false);
+      } else {
+        setError({ text: data.message || 'Failed to send OTP.', type: 'error' });
+      }
+    } catch (err) {
+      setError({ text: 'Network error. Please try again.', type: 'error' });
+    } finally {
+      setLoading(false);
+      setResending(false);
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({
@@ -26,26 +74,13 @@ const SignUpCard = ({ onSwitchToLogin }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError({ text: '', type: '' });
     setLoading(true);
 
     try {
       if (step === 0) {
         // Step 1: Send OTP
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/sendotp`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: formData.email }),
-        });
-        const data = await response.json();
-        if (response.ok) {
-          alert(`OTP sent to ${formData.email}!`);
-          setStep(1);
-          localStorage.setItem('email', formData.email);
-          setOtpSent(true);
-        } else {
-          setError(data.message || 'Failed to send OTP.');
-        }
+        await handleSendOtp();
       } else if (step === 1) {
         // Step 2: Verify OTP
         const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/verify-otp`, {
@@ -55,15 +90,15 @@ const SignUpCard = ({ onSwitchToLogin }) => {
         });
         const data = await response.json();
         if (response.ok) {
-          alert('Email verified! Please complete your registration.');
+          setError({ text: 'Email verified! Please complete your registration.', type: 'success' });
           setStep(2);
         } else {
-          setError(data.message || 'Invalid OTP.');
+          setError({ text: data.message || 'Invalid OTP.', type: 'error' });
         }
       } else if (step === 2) {
         // Step 3: Complete Registration
         if (formData.password !== formData.confirmPassword) {
-          setError('Passwords do not match');
+          setError({ text: 'Passwords do not match', type: 'error' });
           setLoading(false);
           return;
         }
@@ -80,14 +115,16 @@ const SignUpCard = ({ onSwitchToLogin }) => {
         });
         const data = await response.json();
         if (response.ok) {
-          alert('Account created successfully! Please sign in.');
-          if (onSwitchToLogin) onSwitchToLogin();
+          setError({ text: 'Account created successfully! Please sign in.', type: 'success' });
+          setTimeout(() => {
+            if (onSwitchToLogin) onSwitchToLogin();
+          }, 2000);
         } else {
-          setError(data.message || 'Failed to create account.');
+          setError({ text: data.message || 'Failed to create account.', type: 'error' });
         }
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      setError({ text: 'Network error. Please try again.', type: 'error' });
       console.error('Signup error:', err);
     } finally {
       setLoading(false);
@@ -201,28 +238,45 @@ const SignUpCard = ({ onSwitchToLogin }) => {
               )}
 
               {step === 1 && (
-                <div>
-                  <label htmlFor="otp" className="block text-xs font-medium text-gray-400 mb-1">
-                    Enter OTP
-                  </label>
-                  <input
-                    id="otp"
-                    type="text"
-                    name="otp"
-                    placeholder="••••••"
-                    value={formData.otp}
-                    onChange={handleChange}
-                    required
-                    className="
-                      w-full px-4 py-3 rounded-lg
-                      bg-black border-2 border-neutral-800
-                      text-white placeholder-gray-500
-                      focus:outline-none focus:border-purple-600
-                      transition-colors duration-300
-                      tracking-widest text-center text-lg
-                    "
-                  />
-                </div>
+                <>
+                  <div>
+                    <label htmlFor="otp" className="block text-xs font-medium text-gray-400 mb-1">
+                      Enter OTP
+                    </label>
+                    <input
+                      id="otp"
+                      type="text"
+                      name="otp"
+                      placeholder="••••••"
+                      value={formData.otp}
+                      onChange={handleChange}
+                      required
+                      className="
+                        w-full px-4 py-3 rounded-lg
+                        bg-black border-2 border-neutral-800
+                        text-white placeholder-gray-500
+                        focus:outline-none focus:border-purple-600
+                        transition-colors duration-300
+                        tracking-widest text-center text-lg
+                      "
+                    />
+                  </div>
+                  <div className="text-center mt-2">
+                    {resending ? null : canResend ? (
+                      <button
+                        type="button"
+                        onClick={handleSendOtp}
+                        className="text-sm text-purple-400 hover:text-purple-300 underline cursor-pointer"
+                      >
+                        Resend OTP
+                      </button>
+                    ) : (
+                      <p className="text-sm text-gray-400">
+                        Resend OTP in <span className="font-bold text-white">{timer}s</span>
+                      </p>
+                    )}
+                  </div>
+                </>
               )}
 
               {step === 2 && (
@@ -324,17 +378,22 @@ const SignUpCard = ({ onSwitchToLogin }) => {
                 </>
               )}
 
-              {/* Error Message */}
-              {error && (
-                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/50 text-red-400 text-sm">
-                  {error}
+              {/* Response Message */}
+              {error.text && (
+                <div
+                  className={`p-3 rounded-lg border text-sm ${error.type === 'success'
+                    ? 'bg-green-500/10 border-green-500/50 text-green-400'
+                    : 'bg-red-500/10 border-red-500/50 text-red-400'
+                    }`}
+                >
+                  {error.text}
                 </div>
               )}
 
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || resending}
                 className="
                   w-full px-4 py-2.5 rounded-lg
                   border-2 border-purple-600
@@ -348,7 +407,7 @@ const SignUpCard = ({ onSwitchToLogin }) => {
                   disabled:opacity-50 disabled:cursor-not-allowed
                 "
               >
-                {loading
+                {resending ? 'Sending...' : loading
                   ? (step === 0 ? 'Sending OTP...' : step === 1 ? 'Verifying...' : 'Creating Account...')
                   : (step === 0 ? 'Verify Email' : step === 1 ? 'Verify OTP' : 'Create Account')}
               </button>

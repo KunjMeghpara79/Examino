@@ -21,6 +21,7 @@ public class RedisTest {
                 "2005",
                 Duration.ofSeconds(30)
         );
-        System.out.println("OTP stored in Redis");
+        String storedOtp=redisTemplate.opsForValue().get("Kunj");
+        System.out.println(storedOtp);
     }
 }
