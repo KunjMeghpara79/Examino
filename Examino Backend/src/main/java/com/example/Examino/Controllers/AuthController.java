@@ -23,10 +23,12 @@ public class AuthController {
     private AuthService authService;
 
     @Autowired
-    private ConfirmPasswordService confirmPasswordService;
+    private ForgotPasswordService forgotPasswordService;
 
     @Autowired
-    private ForgotPasswordService forgotPasswordService;
+    private ConfirmPasswordService confirmPasswordService;
+
+
 
     @PostMapping("/create-user")
     public ResponseEntity<?> createUser(@RequestBody CreateUserRequest request) {
@@ -39,9 +41,25 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("message","OTP sent successfully"));
     }
 
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotpassword(@RequestBody Map<String,String> body) throws MessagingException {
+       return forgotPasswordService.sendotp(body.get("email"));
+    }
+
+
+    @PostMapping("verify-reset-otp")
+    public ResponseEntity<?> verifyotp(@RequestBody Map<String,String> body){
+        return forgotPasswordService.verifyotp(body.get("otp"),body.get("email"));
+    }
+
     @PostMapping("/verify-otp")
     public ResponseEntity<?> verify(@RequestBody  Map<String,String> body){
         return confirmPasswordService.verifyotp(body.get("email"),body.get("otp"));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> reset(@RequestBody Map<String,String> body){
+        return forgotPasswordService.resetpassword(body.get("email"),body.get("password"));
     }
 
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import SpotlightCard from './SpotlightCard';
 import GradientText from './GradientText';
 import DecryptedText from './DecryptedText';
@@ -10,7 +10,32 @@ const LoginCard = ({ onSwitchToSignup }) => {
     });
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+    const [error, setError] = useState({ text: '', type: '' });
+
+    // Forgot Password States
+    const [mode, setMode] = useState('login'); // 'login' or 'forgot'
+    const [forgotStep, setForgotStep] = useState(0); // 0: Email, 1: OTP, 2: NewPassword
+    const [resetData, setResetData] = useState({
+        email: '',
+        otp: '',
+        newPassword: '',
+        confirmNewPassword: ''
+    });
+    const [timer, setTimer] = useState(60);
+    const [canResend, setCanResend] = useState(false);
+    const [resending, setResending] = useState(false);
+
+    useEffect(() => {
+        let interval;
+        if (mode === 'forgot' && forgotStep === 1 && timer > 0) {
+            interval = setInterval(() => {
+                setTimer((prev) => prev - 1);
+            }, 1000);
+        } else if (timer === 0) {
+            setCanResend(true);
+        }
+        return () => clearInterval(interval);
+    }, [mode, forgotStep, timer]);
 
     const handleChange = (e) => {
         setFormData({
@@ -19,10 +44,17 @@ const LoginCard = ({ onSwitchToSignup }) => {
         });
     };
 
-    const handleSubmit = async (e) => {
+    const handleResetChange = (e) => {
+        setResetData({
+            ...resetData,
+            [e.target.name]: e.target.value,
+        });
+    };
+
+    const handleLoginSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
-        setError('');
+        setError({ text: '', type: '' });
 
         try {
             const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/login`, {
@@ -47,13 +79,115 @@ const LoginCard = ({ onSwitchToSignup }) => {
                 // TODO: Redirect to dashboard based on role
                 // navigate('/dashboard'); 
             } else {
-                setError(data.message || 'Login failed. Please check your credentials.');
+                setError({ text: data.message || 'Login failed. Please check your credentials.', type: 'error' });
             }
         } catch (err) {
             console.error('Login error:', err);
-            setError('Network error. Please try again later.');
+            setError({ text: 'Network error. Please try again later.', type: 'error' });
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleSendResetOtp = async () => {
+        setError({ text: '', type: '' });
+        if (forgotStep === 0) {
+            setLoading(true);
+        } else {
+            setResending(true);
+        }
+
+        try {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/forgot-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: resetData.email }),
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setError({ text: `Reset OTP sent to ${resetData.email}!`, type: 'success' });
+                setForgotStep(1);
+                setTimer(60);
+                setCanResend(false);
+            } else {
+                setError({ text: data.message || 'Failed to send OTP.', type: 'error' });
+            }
+        } catch (err) {
+            setError({ text: 'Network error. Please try again.', type: 'error' });
+        } finally {
+            setLoading(false);
+            setResending(false);
+        }
+    };
+
+    const handleVerifyResetOtp = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError({ text: '', type: '' });
+
+        try {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/verify-reset-otp`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: resetData.email, otp: resetData.otp }),
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setError({ text: 'OTP Verified! Please enter new password.', type: 'success' });
+                setForgotStep(2);
+            } else {
+                setError({ text: data.message || 'Invalid OTP.', type: 'error' });
+            }
+        } catch (err) {
+            setError({ text: 'Network error. Please try again.', type: 'error' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleResetPassword = async (e) => {
+        e.preventDefault();
+        if (resetData.newPassword !== resetData.confirmNewPassword) {
+            setError({ text: 'Passwords do not match', type: 'error' });
+            return;
+        }
+
+        setLoading(true);
+        setError({ text: '', type: '' });
+
+        try {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/reset-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: resetData.email, password: resetData.newPassword }),
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setError({ text: 'Password reset successfully! Redirecting to login...', type: 'success' });
+                setTimeout(() => {
+                    setMode('login');
+                    setForgotStep(0);
+                    setError({ text: '', type: '' });
+                    setFormData(prev => ({ ...prev, email: resetData.email }));
+                }, 2000);
+            } else {
+                setError({ text: data.message || 'Failed to reset password.', type: 'error' });
+            }
+        } catch (err) {
+            setError({ text: 'Network error. Please try again.', type: 'error' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleForgotSubmit = (e) => {
+        e.preventDefault();
+        if (forgotStep === 0) {
+            handleSendResetOtp();
+        } else if (forgotStep === 1) {
+            handleVerifyResetOtp(e);
+        } else if (forgotStep === 2) {
+            handleResetPassword(e);
         }
     };
 
@@ -130,115 +264,284 @@ const LoginCard = ({ onSwitchToSignup }) => {
                                     animationSpeed={8}
                                     showBorder={false}
                                 >
-                                    Sign in
+                                    {mode === 'login' ? 'Sign in' : 'Recover Account'}
                                 </GradientText>
                             </h2>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="space-y-3">
-                            {/* Email Input */}
-                            <div>
-                                <label htmlFor="email" className="block text-sm font-medium text-gray-400 mb-2">
-                                    Email Address
-                                </label>
-                                <input
-                                    id="email"
-                                    type="email"
-                                    name="email"
-                                    placeholder="john@example.com"
-                                    value={formData.email}
-                                    onChange={handleChange}
-                                    required
-                                    className="
-                    w-full px-4 py-3 rounded-lg
-                    bg-black border-2 border-neutral-800
-                    text-white placeholder-gray-500
-                    focus:outline-none focus:border-purple-600
-                    transition-colors duration-300
-                  "
-                                />
-                            </div>
-
-                            {/* Password Input */}
-                            <div>
-                                <div className="flex justify-between items-center mb-2">
-                                    <label htmlFor="password" className="block text-sm font-medium text-gray-400">
-                                        Password
+                        {mode === 'login' ? (
+                            <form onSubmit={handleLoginSubmit} className="space-y-3">
+                                {/* Email Input */}
+                                <div>
+                                    <label htmlFor="email" className="block text-sm font-medium text-gray-400 mb-2">
+                                        Email Address
                                     </label>
-                                    <a href="#" className="text-sm text-purple-600 hover:text-purple-500 transition-colors duration-300">
-                                        Forgot password?
-                                    </a>
-                                </div>
-                                <div className="relative">
                                     <input
-                                        id="password"
-                                        type={showPassword ? "text" : "password"}
-                                        name="password"
-                                        placeholder="••••••••"
-                                        value={formData.password}
+                                        id="email"
+                                        type="email"
+                                        name="email"
+                                        placeholder="john@example.com"
+                                        value={formData.email}
                                         onChange={handleChange}
                                         required
                                         className="
-                      w-full px-4 py-3 pr-12 rounded-lg
-                      bg-black border-2 border-neutral-800
-                      text-white placeholder-gray-500
-                      focus:outline-none focus:border-purple-600
-                      transition-colors duration-300
-                    "
+                        w-full px-4 py-3 rounded-lg
+                        bg-black border-2 border-neutral-800
+                        text-white placeholder-gray-500
+                        focus:outline-none focus:border-purple-600
+                        transition-colors duration-300
+                      "
                                     />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="
-                      absolute right-3 top-1/2 -translate-y-1/2
-                      text-gray-400 hover:text-purple-600
-                      transition-colors duration-300
-                      focus:outline-none
+                                </div>
+
+                                {/* Password Input */}
+                                <div>
+                                    <div className="flex justify-between items-center mb-2">
+                                        <label htmlFor="password" className="block text-sm font-medium text-gray-400">
+                                            Password
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setMode('forgot');
+                                                setForgotStep(0);
+                                                setError({ text: '', type: '' });
+                                            }}
+                                            className="text-sm text-purple-600 hover:text-purple-500 transition-colors duration-300 cursor-pointer"
+                                        >
+                                            Forgot password?
+                                        </button>
+                                    </div>
+                                    <div className="relative">
+                                        <input
+                                            id="password"
+                                            type={showPassword ? "text" : "password"}
+                                            name="password"
+                                            placeholder="••••••••"
+                                            value={formData.password}
+                                            onChange={handleChange}
+                                            required
+                                            className="
+                          w-full px-4 py-3 pr-12 rounded-lg
+                          bg-black border-2 border-neutral-800
+                          text-white placeholder-gray-500
+                          focus:outline-none focus:border-purple-600
+                          transition-colors duration-300
+                        "
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="
+                          absolute right-3 top-1/2 -translate-y-1/2
+                          text-gray-400 hover:text-purple-600
+                          transition-colors duration-300
+                          focus:outline-none
+                          cursor-pointer
+                        "
+                                            aria-label={showPassword ? "Hide password" : "Show password"}
+                                        >
+                                            {showPassword ? (
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                                </svg>
+                                            ) : (
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Error Message */}
+                                {error.text && (
+                                    <div className={`p-3 rounded-lg border text-sm ${error.type === 'success' ? 'bg-green-500/10 border-green-500/50 text-green-400' : 'bg-red-500/10 border-red-500/50 text-red-400'}`}>
+                                        {error.text}
+                                    </div>
+                                )}
+
+                                {/* Submit Button */}
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="
+                      w-full px-6 py-3 rounded-lg 
+                      border-2 border-purple-600 
+                      text-purple-600 bg-transparent 
+                      hover:bg-purple-600 hover:text-white 
+                      transition-all duration-300 
+                      font-medium text-lg
+                      hover:shadow-[0_0_15px_rgba(168,85,247,0.8)]
                       cursor-pointer
+                      mt-2
+                      disabled:opacity-50 disabled:cursor-not-allowed
                     "
-                                        aria-label={showPassword ? "Hide password" : "Show password"}
-                                    >
-                                        {showPassword ? (
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                                            </svg>
-                                        ) : (
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                            </svg>
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
+                                >
+                                    {loading ? 'Signing In...' : 'Sign In'}
+                                </button>
+                            </form>
+                        ) : (
+                            <form onSubmit={handleForgotSubmit} className="space-y-4">
+                                <h3 className="text-xl font-bold text-white text-center mb-4">
+                                    {forgotStep === 0 ? 'Reset Password' : forgotStep === 1 ? 'Verify OTP' : 'New Password'}
+                                </h3>
 
-                            {/* Error Message */}
-                            {error && (
-                                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/50 text-red-400 text-sm">
-                                    {error}
-                                </div>
-                            )}
+                                {forgotStep === 0 && (
+                                    <div>
+                                        <label htmlFor="resetEmail" className="block text-sm font-medium text-gray-400 mb-2">
+                                            Email Address
+                                        </label>
+                                        <input
+                                            id="resetEmail"
+                                            type="email"
+                                            name="email"
+                                            placeholder="john@example.com"
+                                            value={resetData.email}
+                                            onChange={handleResetChange}
+                                            required
+                                            className="
+                          w-full px-4 py-3 rounded-lg
+                          bg-black border-2 border-neutral-800
+                          text-white placeholder-gray-500
+                          focus:outline-none focus:border-purple-600
+                          transition-colors duration-300
+                        "
+                                        />
+                                    </div>
+                                )}
 
-                            {/* Submit Button */}
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="
-                  w-full px-6 py-3 rounded-lg 
-                  border-2 border-purple-600 
-                  text-purple-600 bg-transparent 
-                  hover:bg-purple-600 hover:text-white 
-                  transition-all duration-300 
-                  font-medium text-lg
-                  hover:shadow-[0_0_15px_rgba(168,85,247,0.8)]
-                  cursor-pointer
-                  mt-2
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                "
-                            >
-                                {loading ? 'Signing In...' : 'Sign In'}
-                            </button>
-                        </form>
+                                {forgotStep === 1 && (
+                                    <>
+                                        <div>
+                                            <label htmlFor="resetOtp" className="block text-sm font-medium text-gray-400 mb-2">
+                                                Enter OTP
+                                            </label>
+                                            <input
+                                                id="resetOtp"
+                                                type="text"
+                                                name="otp"
+                                                placeholder="••••••"
+                                                value={resetData.otp}
+                                                onChange={handleResetChange}
+                                                required
+                                                className="
+                            w-full px-4 py-3 rounded-lg
+                            bg-black border-2 border-neutral-800
+                            text-white placeholder-gray-500
+                            focus:outline-none focus:border-purple-600
+                            transition-colors duration-300
+                            tracking-widest text-center text-lg
+                          "
+                                            />
+                                        </div>
+                                        <div className="text-center mt-2">
+                                            {resending ? null : canResend ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={handleSendResetOtp}
+                                                    className="text-sm text-purple-400 hover:text-purple-300 underline cursor-pointer"
+                                                >
+                                                    Resend OTP
+                                                </button>
+                                            ) : (
+                                                <p className="text-sm text-gray-400">
+                                                    Resend OTP in <span className="font-bold text-white">{timer}s</span>
+                                                </p>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+
+                                {forgotStep === 2 && (
+                                    <>
+                                        <div>
+                                            <label htmlFor="newPassword" className="block text-sm font-medium text-gray-400 mb-2">
+                                                New Password
+                                            </label>
+                                            <input
+                                                id="newPassword"
+                                                type="password"
+                                                name="newPassword"
+                                                placeholder="••••••••"
+                                                value={resetData.newPassword}
+                                                onChange={handleResetChange}
+                                                required
+                                                className="
+                            w-full px-4 py-3 rounded-lg
+                            bg-black border-2 border-neutral-800
+                            text-white placeholder-gray-500
+                            focus:outline-none focus:border-purple-600
+                            transition-colors duration-300
+                          "
+                                            />
+                                        </div>
+                                        <div>
+                                            <label htmlFor="confirmNewPassword" className="block text-sm font-medium text-gray-400 mb-2">
+                                                Confirm New Password
+                                            </label>
+                                            <input
+                                                id="confirmNewPassword"
+                                                type="password"
+                                                name="confirmNewPassword"
+                                                placeholder="••••••••"
+                                                value={resetData.confirmNewPassword}
+                                                onChange={handleResetChange}
+                                                required
+                                                className="
+                            w-full px-4 py-3 rounded-lg
+                            bg-black border-2 border-neutral-800
+                            text-white placeholder-gray-500
+                            focus:outline-none focus:border-purple-600
+                            transition-colors duration-300
+                          "
+                                            />
+                                        </div>
+                                    </>
+                                )}
+
+                                {/* Error Message */}
+                                {error.text && (
+                                    <div className={`p-3 rounded-lg border text-sm ${error.type === 'success' ? 'bg-green-500/10 border-green-500/50 text-green-400' : 'bg-red-500/10 border-red-500/50 text-red-400'}`}>
+                                        {error.text}
+                                    </div>
+                                )}
+
+                                {/* Submit Button */}
+                                <button
+                                    type="submit"
+                                    disabled={loading || resending}
+                                    className="
+                      w-full px-6 py-3 rounded-lg 
+                      border-2 border-purple-600 
+                      text-purple-600 bg-transparent 
+                      hover:bg-purple-600 hover:text-white 
+                      transition-all duration-300 
+                      font-medium text-lg
+                      hover:shadow-[0_0_15px_rgba(168,85,247,0.8)]
+                      cursor-pointer
+                      mt-2
+                      disabled:opacity-50 disabled:cursor-not-allowed
+                    "
+                                >
+                                    {resending ? 'Sending...' : loading
+                                        ? (forgotStep === 0 ? 'Sending OTP...' : forgotStep === 1 ? 'Verifying...' : 'Resetting Password...')
+                                        : (forgotStep === 0 ? 'Send Reset Link' : forgotStep === 1 ? 'Verify OTP' : 'Reset Password')}
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setMode('login');
+                                        setError({ text: '', type: '' });
+                                    }}
+                                    className="w-full cursor-pointer text-center text-gray-400 hover:text-white mt-4 text-sm"
+                                >
+                                    Back to Login
+                                </button>
+                            </form>
+                        )}
 
                         {/* Divider */}
                         <div className="flex items-center gap-3 my-5">
