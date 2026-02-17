@@ -48,11 +48,20 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
 
-        // Redirect to frontend with token
-        // Redirect to frontend with token, name, and email
-        // Correctly encoding the values is recommended but keeping it simple for now as per request
-        // Using & separator for subsequent parameters and = for values
-        response.sendRedirect(frontendUrl + "/oauth2/callback?token=" + token + "&name=" + name + "&email=" + email);
+        // Redirect with encoded parameters to avoid issues with spaces or special characters
+        try {
+            String redirectUrl = String.format("%s/oauth2/callback?token=%s&name=%s&email=%s&role=%s",
+                frontendUrl,
+                java.net.URLEncoder.encode(token, "UTF-8"),
+                java.net.URLEncoder.encode(name, "UTF-8"),
+                java.net.URLEncoder.encode(email, "UTF-8"),
+                java.net.URLEncoder.encode(user.getRole().name(), "UTF-8")
+            );
+            response.sendRedirect(redirectUrl);
+        } catch (java.io.UnsupportedEncodingException e) {
+            // Should not happen with UTF-8
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Encoding error");
+        }
 
     }
 }

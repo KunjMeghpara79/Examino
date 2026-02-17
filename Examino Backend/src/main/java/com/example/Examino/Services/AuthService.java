@@ -76,7 +76,8 @@ public class AuthService {
                 Map.of(
                         "token",token,
                         "email",user.getEmail(),
-                        "role",user.getRole().name()
+                        "role",user.getRole().name(),
+                        "name",user.getName()
                 )
         );
     }

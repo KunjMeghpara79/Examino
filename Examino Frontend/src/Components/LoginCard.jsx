@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import SpotlightCard from './SpotlightCard';
 import GradientText from './GradientText';
 import DecryptedText from './DecryptedText';
 
 const LoginCard = ({ onSwitchToSignup }) => {
+    const navigate = useNavigate();
     const [formData, setFormData] = useState({
         email: '',
         password: '',
@@ -74,10 +76,20 @@ const LoginCard = ({ onSwitchToSignup }) => {
                 // Determine user role and redirect accordingly
                 // Assuming the backend returns a token and user details
                 localStorage.setItem('token', data.token);
+                localStorage.setItem('name', data.name);
+                localStorage.setItem('email', data.email);
+                localStorage.setItem('role', data.role);
                 console.log(data);
-                localStorage.setItem('user', JSON.stringify(data.user)); // Optional: store user info
-                // TODO: Redirect to dashboard based on role
-                // navigate('/dashboard'); 
+                // localStorage.setItem('user', JSON.stringify(data.user)); // user object is not in response
+                if (data.role === 'STUDENT') {
+                    navigate('/student-dashboard');
+                } else if (data.role === 'TEACHER') {
+                    navigate('/teacher-dashboard');
+                } else {
+                    // Fallback or handle other roles
+                    console.warn('Unknown role:', data.role);
+                    navigate('/');
+                }
             } else {
                 setError({ text: data.message || 'Login failed. Please check your credentials.', type: 'error' });
             }
